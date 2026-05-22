@@ -3,4 +3,7 @@
     <string name="app_name_S1">Cine</string>
     <string name="app_name_S2">Track</string>
     <string name="Dev_Name">Dessap Sa\'a Yvan Lendl</string>
+    
+    <string name="settings">Settings</string>
+    <string name="search">Search</string>
 </resources>
