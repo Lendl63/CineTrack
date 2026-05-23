@@ -74,6 +74,6 @@ public class SettingsActivity extends AppCompatActivity {
     editor.apply();
 
     Toast.makeText(this,
-        "Paramètres sauvegardés ✓", Toast.LENGTH_SHORT).show();
+        "Paramètres sauvegardés", Toast.LENGTH_SHORT).show();
   }
 }

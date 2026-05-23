@@ -63,8 +63,7 @@ public class LocalSerieService {
 
   /**
    * Sauvegarde une LocalSerie dans le fichier JSON.
-   * Si une série avec le même id existe déjà, elle est remplacée.
-   * Sinon elle est ajoutée à la fin.
+   * En ecrasant le contenue du fichier
    */
   public static boolean saveOrUpdate(Context context, LocalSerie serie) {
     try {
@@ -148,7 +147,7 @@ public class LocalSerieService {
 
   /**
    * Convertit une LocalSerie en JSONObject pour le fichier.
-   * Les chemins d'image sont stockés en URL complète pour l'affichage.
+   * Les chemins d'image sont stockés en URL complète pour l'affichage au cas ou l'utilisateur ce connecte
    */
   private static JSONObject toJson(LocalSerie s) throws Exception {
     JSONObject obj = new JSONObject();
@@ -166,7 +165,7 @@ public class LocalSerieService {
     obj.put("network",          s.getNetwork() != null ? s.getNetwork() : "");
     obj.put("productionStatus", s.getProductionStatus() != null ? s.getProductionStatus() : "");
 
-    // URLs complètes des images (pour affichage direct sans reconstruire)
+    // URLs complètes des images sont construit pour l'affichage
     obj.put("posterPath", s.getPosterPath() != null
         ? TmdbApiService.IMAGE_BASE_URL + s.getPosterPath()
         : JSONObject.NULL);

@@ -19,8 +19,11 @@ public class TmdbApiService {
   // (utile en développement avec local.properties).
   // ─────────────────────────────────────────────────────────────────
 
-  public static final String BASE_URL        = "https://api.themoviedb.org/3";
-  public static final String IMAGE_BASE_URL  = "https://image.tmdb.org/t/p/w500";
+  public static final String BASE_URL       = "https://api.themoviedb.org/3";
+  public static final String IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
+
+  // ID du genre Science-Fiction pour les séries TV sur TMDB
+  private static final int GENRE = 10765;
 
   /**
    * Retourne la clé API : SharedPreferences en priorité, sinon BuildConfig.
@@ -47,7 +50,7 @@ public class TmdbApiService {
 
   /**
    * Recherche des séries sur TMDB par mot-clé.
-   * Doit être appelé depuis un thread background.
+   * Les résultats sont filtrés pour ne garder que les séries pour le genre de science fiction
    */
   public static List<Serie> searchSeries(Context context, String query) {
     List<Serie> results = new ArrayList<>();
@@ -78,11 +81,27 @@ public class TmdbApiService {
       reader.close();
       conn.disconnect();
 
-      JSONObject response     = new JSONObject(sb.toString());
+      JSONObject response    = new JSONObject(sb.toString());
       JSONArray  resultsArray = response.getJSONArray("results");
 
       for (int i = 0; i < resultsArray.length(); i++) {
         JSONObject obj = resultsArray.getJSONObject(i);
+
+        // Filtre
+        // Vérifie que la série appartient au genre 10765 (Sci-Fi)
+        // Si genre_ids est absent on l'ignore (données incomplètes)
+        if (obj.has("genre_ids")) {
+          JSONArray genres  = obj.getJSONArray("genre_ids");
+          boolean  isSciFi = false;
+          for (int g = 0; g < genres.length(); g++) {
+            if (genres.getInt(g) == GENRE) {
+              isSciFi = true;
+              break;
+            }
+          }
+          // Ignore les séries qui ne sont pas Sci-Fi
+          if (!isSciFi) continue;
+        }
 
         String posterPath   = obj.isNull("poster_path")
             ? null : obj.getString("poster_path");
