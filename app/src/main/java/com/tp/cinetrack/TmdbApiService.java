@@ -1,5 +1,7 @@
 package com.tp.cinetrack;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.BufferedReader;
@@ -12,40 +14,52 @@ import java.util.List;
 public class TmdbApiService {
 
   // ─────────────────────────────────────────────────────────────────
-  // Clé API lue depuis local.properties via BuildConfig
-  // Pour configurer : ajoute TMDB_API_KEY=ta_cle dans local.properties
-  private static final String API_KEY = BuildConfig.TMDB_API_KEY;
+  // Clé API lue depuis SharedPreferences (saisie dans les paramètres).
+  // Fallback sur BuildConfig si SharedPreferences est vide
+  // (utile en développement avec local.properties).
   // ─────────────────────────────────────────────────────────────────
 
-  static final String BASE_URL       = "https://api.themoviedb.org/3";
-  public  static final String IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
+  public static final String BASE_URL        = "https://api.themoviedb.org/3";
+  public static final String IMAGE_BASE_URL  = "https://image.tmdb.org/t/p/w500";
 
   /**
-   * Vérifie si la clé API est configurée et valide.
-   * Retourne false si local.properties est absent ou si la clé est vide.
+   * Retourne la clé API : SharedPreferences en priorité, sinon BuildConfig.
    */
-  public static boolean isApiKeyConfigured() {
-    return API_KEY != null
-        && !API_KEY.isEmpty()
-        && !API_KEY.equals("REMPLACE_PAR_TA_CLE_TMDB");
+  public static String getApiKey(Context context) {
+    SharedPreferences prefs = context.getSharedPreferences(
+        SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE);
+    String key = prefs.getString(SettingsActivity.KEY_API_KEY, "");
+    if (!key.isEmpty()) return key;
+
+    // Fallback sur BuildConfig (valeur de local.properties au build)
+    return BuildConfig.TMDB_API_KEY;
+  }
+
+  /**
+   * Vérifie si une clé API valide est disponible.
+   */
+  public static boolean isApiKeyConfigured(Context context) {
+    String key = getApiKey(context);
+    return key != null
+        && !key.isEmpty()
+        && !key.equals("REMPLACE_PAR_TA_CLE_TMDB");
   }
 
   /**
    * Recherche des séries sur TMDB par mot-clé.
-   * Retourne une liste complète de Serie avec tous les champs disponibles.
-   * Les champs absents dans /search/tv (saisons, épisodes...) sont à 0/"".
    * Doit être appelé depuis un thread background.
    */
-  public static List<Serie> searchSeries(String query) {
+  public static List<Serie> searchSeries(Context context, String query) {
     List<Serie> results = new ArrayList<>();
-    if (!isApiKeyConfigured() || query == null || query.trim().isEmpty()) {
+    if (!isApiKeyConfigured(context)
+        || query == null || query.trim().isEmpty()) {
       return results;
     }
 
     try {
       String encodedQuery = query.trim().replace(" ", "%20");
       String urlStr = BASE_URL
-          + "/search/tv?api_key=" + API_KEY
+          + "/search/tv?api_key=" + getApiKey(context)
           + "&query=" + encodedQuery
           + "&language=fr-FR";
 
@@ -54,7 +68,6 @@ public class TmdbApiService {
       conn.setRequestMethod("GET");
       conn.setConnectTimeout(10000);
       conn.setReadTimeout(10000);
-
       if (conn.getResponseCode() != 200) return results;
 
       BufferedReader reader = new BufferedReader(
@@ -65,13 +78,7 @@ public class TmdbApiService {
       reader.close();
       conn.disconnect();
 
-      // Parse JSON — format réel de GET /search/tv (TMDB)
-      // Champs disponibles : id, name, tagline(absent), first_air_date,
-      // vote_average, overview, poster_path, backdrop_path, status(absent)
-      // Champs absents dans search : number_of_seasons, number_of_episodes,
-      // episode_run_time, networks → complétés à 0/"" pour la carte,
-      // seront chargés dans DetailsActivity via GET /tv/{id}
-      JSONObject response    = new JSONObject(sb.toString());
+      JSONObject response     = new JSONObject(sb.toString());
       JSONArray  resultsArray = response.getJSONArray("results");
 
       for (int i = 0; i < resultsArray.length(); i++) {
@@ -82,22 +89,17 @@ public class TmdbApiService {
         String backdropPath = obj.isNull("backdrop_path")
             ? null : obj.getString("backdrop_path");
 
-        Serie serie = new Serie(
+        results.add(new Serie(
             obj.getInt("id"),
             posterPath,
             backdropPath,
             obj.getString("name"),
-            "",                                    // tagline : absent dans /search/tv
+            "",
             obj.optString("first_air_date", ""),
             obj.optDouble("vote_average", 0.0),
             obj.optString("overview", ""),
-            0,                                     // numberOfSeasons : absent dans /search/tv
-            0,                                     // numberOfEpisodes : absent dans /search/tv
-            0,                                     // episodeRunTime : absent dans /search/tv
-            "",                                    // network : absent dans /search/tv
-            ""                                     // productionStatus : absent dans /search/tv
-        );
-        results.add(serie);
+            0, 0, 0, "", ""
+        ));
       }
 
     } catch (Exception e) {
