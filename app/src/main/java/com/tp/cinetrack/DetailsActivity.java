@@ -40,6 +40,9 @@ public class DetailsActivity extends AppCompatActivity {
       tvPlatform;
   private ImageView         btnBack;
 
+  private MaterialButton btnTrailer;
+  private String         trailerUrl = null;
+
   // Formulaire
   private Spinner           spinnerAvisStatus;
   private TextInputEditText etNote, etAvis, etDateVisionnage;
@@ -82,6 +85,9 @@ public class DetailsActivity extends AppCompatActivity {
     layoutAvis           = findViewById(R.id.layout_avis);
     layoutDateVisionnage = findViewById(R.id.layout_date_visionnage);
     btnSave              = findViewById(R.id.btn_save);
+    btnTrailer = findViewById(R.id.btn_trailer);
+    // Caché par défaut, affiché si une bande-annonce est trouvée
+    btnTrailer.setVisibility(View.GONE);
 
     btnBack.setOnClickListener(v -> finish());
     setupSpinners();
@@ -166,12 +172,117 @@ public class DetailsActivity extends AppCompatActivity {
     tvPlatform.setText("--");
   }
 
-  private void fetchFullDetails(int serieId) {
+  /**
+   * Appelle GET /tv/{id}/videos sur TMDB pour trouver la bande-annonce YouTube.
+   * Cherche un résultat de type "Trailer" sur YouTube en priorité.
+   */
+  private void fetchTrailer(int serieId) {
     executor.execute(() -> {
       try {
         String urlStr = TmdbApiService.BASE_URL
             + "/tv/" + serieId
-            + "?api_key=" + BuildConfig.TMDB_API_KEY
+            + "/videos?api_key=" + TmdbApiService.getApiKey(getApplicationContext())
+            + "&language=fr-FR";
+
+        URL url = new URL(urlStr);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(10000);
+        conn.setReadTimeout(10000);
+        if (conn.getResponseCode() != 200) return;
+
+        BufferedReader reader = new BufferedReader(
+            new InputStreamReader(conn.getInputStream()));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) sb.append(line);
+        reader.close();
+        conn.disconnect();
+
+        JSONObject response = new JSONObject(sb.toString());
+        JSONArray  videos   = response.getJSONArray("results");
+
+        String foundUrl = null;
+
+        // Cherche d'abord un trailer YouTube en français
+        for (int i = 0; i < videos.length(); i++) {
+          JSONObject v = videos.getJSONObject(i);
+          if (v.getString("type").equals("Trailer")
+              && v.getString("site").equals("YouTube")) {
+            foundUrl = "https://www.youtube.com/watch?v="
+                + v.getString("key");
+            break;
+          }
+        }
+
+        // Fallback : n'importe quelle vidéo YouTube si pas de trailer FR
+        if (foundUrl == null && videos.length() > 0) {
+          // Refait la requête en anglais
+          urlStr = TmdbApiService.BASE_URL
+              + "/tv/" + serieId
+              + "/videos?api_key=" + TmdbApiService.getApiKey(getApplicationContext())
+              + "&language=en-US";
+
+          url  = new URL(urlStr);
+          conn = (HttpURLConnection) url.openConnection();
+          conn.setRequestMethod("GET");
+          conn.setConnectTimeout(10000);
+          conn.setReadTimeout(10000);
+
+          if (conn.getResponseCode() == 200) {
+            reader = new BufferedReader(
+                new InputStreamReader(conn.getInputStream()));
+            sb = new StringBuilder();
+            while ((line = reader.readLine()) != null) sb.append(line);
+            reader.close();
+            conn.disconnect();
+
+            JSONArray enVideos = new JSONObject(sb.toString())
+                .getJSONArray("results");
+            for (int i = 0; i < enVideos.length(); i++) {
+              JSONObject v = enVideos.getJSONObject(i);
+              if (v.getString("type").equals("Trailer")
+                  && v.getString("site").equals("YouTube")) {
+                foundUrl = "https://www.youtube.com/watch?v="
+                    + v.getString("key");
+                break;
+              }
+            }
+          }
+        }
+
+        final String finalUrl = foundUrl;
+        mainHandler.post(() -> {
+          if (finalUrl != null) {
+            trailerUrl = finalUrl;
+            btnTrailer.setVisibility(View.VISIBLE);
+            btnTrailer.setOnClickListener(v -> {
+              // Ouvre YouTube ou le navigateur
+              android.content.Intent intent =
+                  new android.content.Intent(
+                      android.content.Intent.ACTION_VIEW,
+                      android.net.Uri.parse(trailerUrl));
+              startActivity(intent);
+            });
+          }
+        });
+
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    });
+  }
+
+  private void fetchFullDetails(int serieId) {
+    // Désactive le bouton pendant le chargement
+    btnSave.setEnabled(false);
+    btnSave.setAlpha(0.5f);
+
+    executor.execute(() -> {
+      try {
+        String urlStr = TmdbApiService.BASE_URL
+            + "/tv/" + serieId
+            + "?api_key=" + TmdbApiService.getApiKey(getApplicationContext())
             + "&language=fr-FR";
 
         URL url = new URL(urlStr);
@@ -243,10 +354,18 @@ public class DetailsActivity extends AppCompatActivity {
         mainHandler.post(() -> {
           currentSerie = full;
           bindFullData(full, fHeures);
+
+          btnSave.setEnabled(true);     // Réactive le bouton une fois les données complètes
+          btnSave.setAlpha(1.0f);
+          fetchTrailer(full.getId());   // Lance la recherche de bande-annonce en parallèle
         });
 
       } catch (Exception e) {
         e.printStackTrace();
+        mainHandler.post(() -> {
+          btnSave.setEnabled(true);
+          btnSave.setAlpha(1.0f);
+        });
       }
     });
   }
