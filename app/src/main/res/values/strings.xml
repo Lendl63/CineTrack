@@ -6,4 +6,5 @@
     
     <string name="settings">Settings</string>
     <string name="search">Search</string>
+    <string name="hint_date_format">JJ/MM/AAAA</string>
 </resources>
