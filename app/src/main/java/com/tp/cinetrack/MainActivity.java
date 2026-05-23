@@ -3,6 +3,10 @@ package com.tp.cinetrack;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.ContextMenu;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -17,6 +21,8 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
+  private static final String KEY_FILTER = "current_filter"; // pour onSaveInstanceState
+
   private RecyclerView       rvSeries;
   private TextView           tvEmptyState;
   private LocalSerieCard     card;
@@ -24,10 +30,19 @@ public class MainActivity extends AppCompatActivity {
   private Spinner            spinnerFilter;
   private String             currentFilter = "Tous";
 
+  // Série sélectionnée par menu contextuel
+  private LocalSerie selectedSerie = null;
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    // onCreate : initialisation unique ; on restaure le filtre si l'activité est recrée
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
+
+    // Restauration du filtre après rotation / recréation
+    if (savedInstanceState != null) {
+      currentFilter = savedInstanceState.getString(KEY_FILTER, "Tous");
+    }
 
     rvSeries      = findViewById(R.id.rv_series);
     tvEmptyState  = findViewById(R.id.tv_empty_state);
@@ -41,8 +56,15 @@ public class MainActivity extends AppCompatActivity {
     );
     rvSeries.setAdapter(card);
 
+    // Enregistre le RecyclerView pour le menu contextuel
+    registerForContextMenu(rvSeries);
+
     ImageView btnSearch = findViewById(R.id.btn_search);
     btnSearch.setOnClickListener(v ->
+        startActivity(new Intent(this, SearchActivity.class)));
+
+    // FAB obligatoire (CDC) — raccourci vers la Recherche
+    findViewById(R.id.fab_add).setOnClickListener(v ->
         startActivity(new Intent(this, SearchActivity.class)));
 
     ImageView btnSettings = findViewById(R.id.btn_settings);
@@ -54,11 +76,76 @@ public class MainActivity extends AppCompatActivity {
 
   @Override
   protected void onResume() {
+    // onResume : recharge la collection après chaque retour (ajout/modif dans DetailsActivity)
     super.onResume();
-    // Recharge les séries à chaque retour sur la page
-    // (après ajout ou modification depuis DetailsActivity)
     allSeries = LocalSerieService.readAll(this);
     applyFilter(currentFilter);
+  }
+
+  @Override
+  protected void onPause() {
+    // onPause : l'activité passe en arrière-plan ; rien à sauvegarder ici (persistance dans fichier)
+    super.onPause();
+  }
+
+  // ── Sauvegarde / restauration d'état ────────────────────────────
+
+  @Override
+  protected void onSaveInstanceState(Bundle outState) {
+    super.onSaveInstanceState(outState);
+    // Sauvegarde le filtre actif pour le restaurer après rotation
+    outState.putString(KEY_FILTER, currentFilter);
+  }
+
+  @Override
+  protected void onRestoreInstanceState(Bundle savedInstanceState) {
+    super.onRestoreInstanceState(savedInstanceState);
+    // Restaure le filtre (appelé automatiquement après onCreate si Bundle non null)
+    currentFilter = savedInstanceState.getString(KEY_FILTER, "Tous");
+  }
+
+  // ── Menu d'options ───────────────────────────────────────────────
+
+  @Override
+  public boolean onCreateOptionsMenu(Menu menu) {
+    getMenuInflater().inflate(R.menu.menu_main, menu);
+    return true;
+  }
+
+  @Override
+  public boolean onOptionsItemSelected(MenuItem item) {
+    if (item.getItemId() == R.id.action_settings) {
+      startActivity(new Intent(this, SettingsActivity.class));
+      return true;
+    }
+    return super.onOptionsItemSelected(item);
+  }
+
+  // ── Menu contextuel (XML) ────────────────────────────────────────
+
+  @Override
+  public void onCreateContextMenu(ContextMenu menu, View v,
+                                   ContextMenu.ContextMenuInfo menuInfo) {
+    super.onCreateContextMenu(menu, v, menuInfo);
+    MenuInflater inflater = getMenuInflater();
+    inflater.inflate(R.menu.context_menu_serie, menu);
+  }
+
+  @Override
+  public boolean onContextItemSelected(MenuItem item) {
+    if (selectedSerie == null) return super.onContextItemSelected(item);
+    int id = item.getItemId();
+    if (id == R.id.ctx_modifier_statut) {
+      showStatusDialog(selectedSerie);
+      return true;
+    } else if (id == R.id.ctx_modifier_note) {
+      showRatingDialog(selectedSerie);
+      return true;
+    } else if (id == R.id.ctx_supprimer) {
+      showDeleteDialog(selectedSerie);
+      return true;
+    }
+    return super.onContextItemSelected(item);
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -67,32 +154,23 @@ public class MainActivity extends AppCompatActivity {
   private void onCardClick(LocalSerie serie) {
     Intent intent = new Intent(this, DetailsActivity.class);
     intent.putExtra("serie", serie);
-    intent.putExtra("isLocal", true); // indique qu'elle vient du local
+    intent.putExtra("isLocal", true);
     startActivity(intent);
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // CLIC LONG → modal : modifier status / note / supprimer
+  // CLIC LONG → mémorise la série + ouvre le menu contextuel XML
   // ─────────────────────────────────────────────────────────────────
   private void onCardLongClick(LocalSerie serie) {
-    String[] options = {"Modifier le status", "Modifier la note", "Supprimer"};
-
-    new AlertDialog.Builder(this)
-        .setTitle(serie.getTitle())
-        .setItems(options, (dialog, which) -> {
-          switch (which) {
-            case 0: showStatusDialog(serie);  break;
-            case 1: showRatingDialog(serie);  break;
-            case 2: showDeleteDialog(serie);  break;
-          }
-        })
-        .show();
+    selectedSerie = serie;
+    // Déclenche le menu contextuel enregistré sur rvSeries
+    openContextMenu(rvSeries);
   }
 
   private void showStatusDialog(LocalSerie serie) {
     String[] statuses = {"En cours", "Terminé", "À voir"};
     new AlertDialog.Builder(this)
-        .setTitle("Modifier le status")
+        .setTitle("Modifier le statut")
         .setItems(statuses, (dialog, which) -> {
           serie.setUserStatus(statuses[which]);
           saveAndRefresh(serie);
@@ -141,6 +219,14 @@ public class MainActivity extends AppCompatActivity {
         android.R.layout.simple_spinner_dropdown_item);
     spinnerFilter.setAdapter(spinnerAdapter);
 
+    // Positionne le spinner sur le filtre restauré
+    for (int i = 0; i < options.length; i++) {
+      if (options[i].equals(currentFilter)) {
+        spinnerFilter.setSelection(i);
+        break;
+      }
+    }
+
     spinnerFilter.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
       @Override
       public void onItemSelected(AdapterView<?> parent, View view,
@@ -153,14 +239,10 @@ public class MainActivity extends AppCompatActivity {
     });
   }
 
-  /**
-   * Filtre par userStatus (statut choisi par l'utilisateur).
-   */
   private void applyFilter(String filter) {
     List<LocalSerie> filtered = new ArrayList<>();
     for (LocalSerie s : allSeries) {
-      if (filter.equals("Tous")
-          || filter.equals(s.getUserStatus())) {
+      if (filter.equals("Tous") || filter.equals(s.getUserStatus())) {
         filtered.add(s);
       }
     }
