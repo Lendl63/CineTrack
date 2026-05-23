@@ -198,19 +198,6 @@
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="32dp" />
 
-            <!-- Bouton Enregistrer -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_save"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:text="Enregistrer"
-                android:textSize="17sp"
-                android:textColor="@color/black"
-                app:cornerRadius="30dp"
-                app:backgroundTint="@color/bleu"
-                android:layout_marginBottom="32dp"
-                android:fontFamily="@font/rajdhani_bold" />
-
             <!-- ── Section Thème ── -->
             <View
                 android:layout_width="match_parent"
@@ -228,13 +215,94 @@
                 android:fontFamily="@font/rajdhani_bold"
                 android:layout_marginBottom="12dp" />
 
-            <TextView
-                android:layout_width="wrap_content"
+            <!-- RadioGroup obligatoire  -->
+            <RadioGroup
+                android:id="@+id/rg_theme"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Science-Fiction"
-                android:textColor="@color/gray"
+                android:orientation="vertical"
+                android:layout_marginBottom="16dp">
+
+                <RadioButton
+                    android:id="@+id/rb_theme_scifi"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Science-Fiction"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    android:checked="true"
+                    android:buttonTint="@color/bleu" />
+
+                <RadioButton
+                    android:id="@+id/rb_theme_fantasy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Fantasy"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    android:buttonTint="@color/bleu" />
+
+            </RadioGroup>
+
+            <!-- Bouton Enregistrer -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_save"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="Enregistrer"
                 android:textSize="17sp"
-                android:fontFamily="@font/rajdhani_regular" />
+                android:textColor="@color/black"
+                app:cornerRadius="30dp"
+                app:backgroundTint="@color/bleu"
+                android:layout_marginBottom="32dp"
+                android:fontFamily="@font/rajdhani_bold" />
+
+            <!-- Switch obligatoire -->
+            <TableLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:stretchColumns="0">
+
+                <TableRow>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Notifications"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:gravity="center_vertical" />
+
+                    <Switch
+                        android:id="@+id/switch_notifications"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false"
+                        android:thumbTint="@color/bleu"
+                        android:trackTint="@color/gray"
+                        android:layout_gravity="end" />
+                </TableRow>
+
+                <TableRow>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Rappels de visionnage"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:gravity="center_vertical" />
+
+                    <!-- CheckBox obligatoire -->
+                    <CheckBox
+                        android:id="@+id/cb_rappels"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false"
+                        android:buttonTint="@color/bleu"
+                        android:layout_gravity="end" />
+                </TableRow>
+
+            </TableLayout>
 
             <View
                 android:layout_width="match_parent"

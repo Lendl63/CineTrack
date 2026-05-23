@@ -379,6 +379,26 @@
 
             </LinearLayout>
 
+            <!-- RatingBar obligatoire (CDC) — note personnelle visuelle sur 5 étoiles -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Note visuelle"
+                android:textColor="@color/bleu"
+                android:fontFamily="@font/rajdhani_bold"
+                android:textSize="15sp"
+                android:layout_marginBottom="4dp" />
+
+            <RatingBar
+                android:id="@+id/rating_bar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:numStars="5"
+                android:stepSize="1"
+                android:rating="0"
+                android:progressTint="@color/bleu"
+                android:layout_marginBottom="16dp" />
+
             <!-- Label Avis -->
             <TextView
                 android:layout_width="wrap_content"
