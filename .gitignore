@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Ignorer les configurations IDE et les APK de build
+.idea/
+app/release/
